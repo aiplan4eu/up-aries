@@ -42,8 +42,7 @@ jobs:
           echo "UP-Aries Version: $UP_AriesVersion"
           if [ "$AriesVersion" != "$UP_AriesVersion" ]; then
             echo "New release found!"
-            cd /aries
-            cp target/release/up-server ../up_aries/bin/aries_linux_amd64
+            cp /aries/target/release/up-server $GITHUB_WORKSPACE/up_aries/bin/aries_linux_amd64
             exit 0
           fi
 
