@@ -1,6 +1,7 @@
 """Unified Planning Integration for Aries"""
 from enum import Enum, auto
 from typing import IO, Callable, Optional, Union
+import subprocess
 
 import unified_planning as up
 from unified_planning.environment import get_env
@@ -21,6 +22,12 @@ class Aries(Solver):
 
     reader = ProtobufReader()
     writer = ProtobufWriter()
+
+    def __init__(self, params: dict = {}):
+        self.run_server = params.get("run_server", False)
+
+        self.executable = "./bin/aries_linux_amd64"
+        # TODO: Add support for different OS
 
     @property
     def name(self) -> str:
@@ -72,12 +79,23 @@ class Aries(Solver):
         timeout: Optional[float] = None,
         output_stream: Optional[IO[str]] = None,
     ) -> "up.solvers.results.PlanGenerationResult":
-        # TODO: Solve problem
+        ### If a problem is sent, for GRPC communication, we can solve the problem in two ways:
+        ### - If the server is ran on a separate process, we can send the problem to the server and get a plan back
+        ### - If not, we could encode the problem and call the server with the encoded problem
+        ###  To enable the option for the above cases, we should be having a planner parameter `run_server`
+        if self.run_server:
+            self.process_id = subprocess.Popen([self.executable, "server"])
+            # TODO: Add GRPC Client
+        else:
+            # Encode the problem
+            encoded_problem = self.writer.convert(problem)
+            command = f"{self.executable} {encoded_problem}"
+            self.process_id = subprocess.run(command, shell=True, stdout=output_stream)
+        
         raise NotImplementedError
 
     def destroy(self):
-        # TODO: Destroy Aries server
-        pass
+        self.process_id.kill()
 
 
 get_env().factory.add_solver("Aries", "up_aries", "Aries")

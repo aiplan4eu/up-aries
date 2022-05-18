@@ -14,9 +14,6 @@ setup(
     author="CNRS-LAAS",
     author_email="abitmonnot@laas.fr",
     packages=["up_aries"],
-    package_data={
-        "": ["aries"],
-    },
     url="https://github.com/plaans/aries", # TODO: Add documentation URL if any
     license="MIT",
 )
