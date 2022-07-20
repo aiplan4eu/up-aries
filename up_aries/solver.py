@@ -17,6 +17,7 @@ from unified_planning.exceptions import UPException
 from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
 
+from .executor import Executor
 
 class OptimalityGuarantee(Enum):
     SATISFICING = auto()
@@ -76,10 +77,8 @@ class Aries(GRPCPlanner):
         if stdout is None:
             self.stdout = open(os.devnull, "w")
 
-        # TODO: Detect Architecture and set the correct executable
-        # TODO: Add support for different OS
         self.executable = os.path.join(
-            os.path.dirname(__file__), "/bin/aries_linux_arm64"
+            os.path.dirname(__file__), Executor()()
         )
 
         print(
