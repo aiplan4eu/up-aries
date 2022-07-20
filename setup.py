@@ -15,7 +15,8 @@ setup(
         various automated planning problems can be submitted.",
     author="CNRS-LAAS",
     author_email="abitmonnot@laas.fr",
+    install_requires=["unified_planning", "grpcio", "grpcio-tools", "pytest"],
     packages=["up_aries"],
-    url="https://github.com/plaans/aries",  # TODO: Add documentation URL if any
+    url="https://github.com/plaans/aries",
     license="MIT",
 )
