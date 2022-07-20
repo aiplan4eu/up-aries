@@ -1,15 +1,21 @@
+#!/usr/bin/env python3
 """Unified Planning Integration for Aries"""
-from enum import Enum, auto
-from typing import IO, Callable, Optional, Union
+import os
 import subprocess
+from enum import Enum, auto
+import time
+from typing import IO, Callable, Optional, Union
 
+import grpc
 import unified_planning as up
-from unified_planning.environment import get_env
+import unified_planning.engines.mixins as mixins
+import unified_planning.grpc.generated.unified_planning_pb2 as proto
+import unified_planning.grpc.generated.unified_planning_pb2_grpc as grpc_api
+from unified_planning import engines
+from unified_planning.engines.results import PlanGenerationResultStatus
 from unified_planning.exceptions import UPException
 from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
-from unified_planning.model import problem_kind as PROBLEM_KIND
-from unified_planning.solvers import Solver
 
 
 class OptimalityGuarantee(Enum):
@@ -17,17 +23,73 @@ class OptimalityGuarantee(Enum):
     SOLVED_OPTIMALLY = auto()
 
 
-class Aries(Solver):
+class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
+    """
+    This class is the interface of a generic gRPC planner
+    that can be contacted at a given host and port.
+    """
+
+    def __init__(self, host: str = "localhost", port: Optional[int] = None):
+        engines.engine.Engine.__init__(self)
+        mixins.OneshotPlannerMixin.__init__(self)
+        self._host = host
+        self._port = port
+        self._writer = ProtobufWriter()
+        self._reader = ProtobufReader()
+
+    def _solve(
+        self,
+        problem: "up.model.AbstractProblem",
+        callback: Optional[
+            Callable[["up.engines.results.PlanGenerationResult"], None]
+        ] = None,
+        timeout: Optional[float] = None,
+        output_stream: Optional[IO[str]] = None,
+    ) -> "up.engines.results.PlanGenerationResult":
+        assert isinstance(problem, up.model.Problem)
+        proto_problem = self._writer.convert(problem)
+        with grpc.insecure_channel(f"{self._host}:{self._port}") as channel:
+            planner = grpc_api.UnifiedPlanningStub(channel)
+            req = proto.PlanRequest(problem=proto_problem, timeout=timeout)
+            response_stream = planner.planOneShot(req)
+            for response in response_stream:
+                response = self._reader.convert(response, problem)
+                assert isinstance(response, up.engines.results.PlanGenerationResult)
+                if (
+                    response.status == PlanGenerationResultStatus.INTERMEDIATE
+                    and callback is not None
+                ):
+                    callback(response)
+                else:
+                    return response
+
+
+class Aries(GRPCPlanner):
     """Represents the solver interface."""
 
     reader = ProtobufReader()
     writer = ProtobufWriter()
 
-    def __init__(self, params: dict = {}):
+    def __init__(self, params: dict = {}, stdout: Optional[IO[str]] = None):
         self.run_server = params.get("run_server", False)
 
-        self.executable = "./bin/aries_linux_amd64"
+        if stdout is None:
+            self.stdout = open(os.devnull, "w")
+
+        # TODO: Detect Architecture and set the correct executable
         # TODO: Add support for different OS
+        self.executable = os.path.join(
+            os.path.dirname(__file__), "/bin/aries_linux_arm64"
+        )
+
+        print(
+            f"Launching Aries with executable: {self.executable} (logs are redirected to {self.stdout})"
+        )
+        self.process_id = subprocess.Popen(
+            self.executable, stdout=self.stdout, stderr=self.stdout, shell=True
+        )
+        time.sleep(0.1)
+        super().__init__(host="localhost", port=params.get("port", 2222))
 
     @property
     def name(self) -> str:
@@ -60,42 +122,30 @@ class Aries(Solver):
 
     @staticmethod
     def supports(problem_kind: "up.model.ProblemKind") -> bool:
-        return bool(
-            problem_kind
-            in [
-                PROBLEM_KIND.full_temporal_kind,
-                PROBLEM_KIND.basic_temporal_kind,
-                PROBLEM_KIND.object_fluent_kind,
-                PROBLEM_KIND.hierarchical_kind,
-            ]
-        )
+        supported_kind = up.model.ProblemKind()
+        supported_kind.set_problem_class("ACTION_BASED")  # type: ignore
+        supported_kind.set_problem_class("HIERARCHICAL")  # type: ignore
+        supported_kind.set_time("CONTINUOUS_TIME")  # type: ignore
+        supported_kind.set_time("INTERMEDIATE_CONDITIONS_AND_EFFECTS")  # type: ignore
+        supported_kind.set_time("TIMED_EFFECT")  # type: ignore
+        supported_kind.set_time("TIMED_GOALS")  # type: ignore
+        supported_kind.set_time("DURATION_INEQUALITIES")  # type: ignore
+        # supported_kind.set_numbers('DISCRETE_NUMBERS') # type: ignore
+        # supported_kind.set_numbers('CONTINUOUS_NUMBERS') # type: ignore
+        supported_kind.set_typing("FLAT_TYPING")  # type: ignore
+        supported_kind.set_typing("HIERARCHICAL_TYPING")  # type: ignore
+        supported_kind.set_conditions_kind("NEGATIVE_CONDITIONS")  # type: ignore
+        supported_kind.set_conditions_kind("DISJUNCTIVE_CONDITIONS")  # type: ignore
+        supported_kind.set_conditions_kind("EQUALITY")  # type: ignore
+        # supported_kind.set_fluents_type('NUMERIC_FLUENTS') # type: ignore
+        supported_kind.set_fluents_type("OBJECT_FLUENTS")  # type: ignore
 
-    def solve(
-        self,
-        problem: "up.model.Problem",
-        callback: Optional[
-            Callable[["up.solvers.results.PlanGenerationResult"], None]
-        ] = None,
-        timeout: Optional[float] = None,
-        output_stream: Optional[IO[str]] = None,
-    ) -> "up.solvers.results.PlanGenerationResult":
-        ### If a problem is sent, for GRPC communication, we can solve the problem in two ways:
-        ### - If the server is ran on a separate process, we can send the problem to the server and get a plan back
-        ### - If not, we could encode the problem and call the server with the encoded problem
-        ###  To enable the option for the above cases, we should be having a planner parameter `run_server`
-        if self.run_server:
-            self.process_id = subprocess.Popen([self.executable, "server"])
-            # TODO: Add GRPC Client
-        else:
-            # Encode the problem
-            encoded_problem = self.writer.convert(problem)
-            command = f"{self.executable} {encoded_problem}"
-            self.process_id = subprocess.run(command, shell=True, stdout=output_stream)
-        
-        raise NotImplementedError
+        return problem_kind <= supported_kind
+
 
     def destroy(self):
         self.process_id.kill()
 
+    def __del__(self):
+        self.destroy()
 
-get_env().factory.add_solver("Aries", "up_aries", "Aries")
