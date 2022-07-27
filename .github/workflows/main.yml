@@ -13,10 +13,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install dependencies
-        run: python3 -m pip install unified-planning pytest
+        run: git clone https://github.com/aiplan4eu/unified-planning.git && cd unified-planning && pip install .
 
       - name: Install UP-Aries
         run: python3 -m pip install .
 
       - name: Run tests
-        run: python3 -m pytest -v .
+        run: python3 -m pytest -v up_aries/test_planner.py
