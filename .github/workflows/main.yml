@@ -3,9 +3,7 @@ name: main
 
 on:
   push:
-    paths:
-      - "up_aries/bin/*"
-
+  pull_request:
 jobs:
   test:
     runs-on: ubuntu-20.04
