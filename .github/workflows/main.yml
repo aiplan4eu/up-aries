@@ -3,6 +3,7 @@ name: main
 
 on:
   push:
+  pull_request:
 jobs:
   test-ubuntu-20-04:
     runs-on: ubuntu-20.04
