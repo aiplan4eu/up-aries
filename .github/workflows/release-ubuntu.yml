@@ -1,0 +1,63 @@
+# This workflow checks if the external repository `Plaan/aries` has a new release for GRPC.
+# and if so, it will trigger the release workflow.
+
+name: Release Ubuntu
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+
+  setup-repo:
+   runs-on: ubuntu-20.04
+   steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: python3 -m pip install unified-planning pytest
+
+      - name: Install UP-Aries
+        run: python3 -m pip install .
+
+  release-amd64:
+    name: Release Ubuntu amd64
+    runs-on: ubuntu-20.04
+    needs: [setup-repo]
+
+    steps:
+      - name: Checkout Aries
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Check version between UP-Aries and Plaan/Aries
+        run: |
+          AriesVersion = "$(cargo run --bin up-server -- --version)"
+          UP_AriesVersion =  "$(python3 -c "import up_aries; print(up_aries.__version__)")"
+          echo "Aries Version: $AriesVersion"
+          echo "UP-Aries Version: $UP_AriesVersion"
+          if [ "$AriesVersion" != "$UP_AriesVersion" ]; then
+            echo "New release found!"
+            cp /aries/target/release/up-server $GITHUB_WORKSPACE/up_aries/bin/aries_linux_amd64
+            exit 0
+          fi
+
+      - name: Test the release
+        run: |
+          python3 -m pytest -v tests
+
+      - name: Push the release
+        uses: actions/checkout@v2
+      - run: |
+          cd $GITHUB_WORKSPACE
+          git add ./up_aries/bin/aries_linux_amd64
+          git config --global user.email "franklinselva10@gmail.com"
+          git config --global user.name "franklinselva"
+          git commit -m "Release up-aries $UP_AriesVersion for Ubuntu"
+          git push origin master
