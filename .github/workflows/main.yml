@@ -1,0 +1,22 @@
+# This workflow manages to test this repository.
+name: main
+
+on:
+  push:
+jobs:
+  test-ubuntu-20-04:
+    runs-on: ubuntu-20.04
+    name: Test Ubuntu 20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: git clone https://github.com/aiplan4eu/unified-planning.git && cd unified-planning && pip install .
+
+      - name: Install UP-Aries
+        run: python3 -m pip install .
+
+      - name: Run tests
+        run: python3 -m pytest -v up_aries/test_planner.py
