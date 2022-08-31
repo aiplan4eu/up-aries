@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 import pytest
 
-# FIXME: This is a temporary solution to test the planner.
-import unified_planning
-unified_planning.engines.factory.DEFAULT_ENGINES["aries"] = ("up_aries", "Aries")
-
 from unified_planning.engines.results import PlanGenerationResultStatus
 from unified_planning.shortcuts import *
 from unified_planning.test.examples import get_example_problems

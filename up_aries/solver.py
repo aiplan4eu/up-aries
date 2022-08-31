@@ -2,67 +2,18 @@
 """Unified Planning Integration for Aries"""
 import os
 import subprocess
-from enum import Enum, auto
+import signal
 import time
-from typing import IO, Callable, Optional, Union
+from typing import IO, Optional, Union
 
-import grpc
 import unified_planning as up
-import unified_planning.engines.mixins as mixins
-import unified_planning.grpc.generated.unified_planning_pb2 as proto
-import unified_planning.grpc.generated.unified_planning_pb2_grpc as grpc_api
-from unified_planning import engines
-from unified_planning.engines.results import PlanGenerationResultStatus
+from unified_planning.engines.mixins.oneshot_planner import OptimalityGuarantee
 from unified_planning.exceptions import UPException
 from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
 
 from .executor import Executor
-
-class OptimalityGuarantee(Enum):
-    SATISFICING = auto()
-    SOLVED_OPTIMALLY = auto()
-
-
-class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
-    """
-    This class is the interface of a generic gRPC planner
-    that can be contacted at a given host and port.
-    """
-
-    def __init__(self, host: str = "localhost", port: Optional[int] = None):
-        engines.engine.Engine.__init__(self)
-        mixins.OneshotPlannerMixin.__init__(self)
-        self._host = host
-        self._port = port
-        self._writer = ProtobufWriter()
-        self._reader = ProtobufReader()
-
-    def _solve(
-        self,
-        problem: "up.model.AbstractProblem",
-        callback: Optional[
-            Callable[["up.engines.results.PlanGenerationResult"], None]
-        ] = None,
-        timeout: Optional[float] = None,
-        output_stream: Optional[IO[str]] = None,
-    ) -> "up.engines.results.PlanGenerationResult":
-        assert isinstance(problem, up.model.Problem)
-        proto_problem = self._writer.convert(problem)
-        with grpc.insecure_channel(f"{self._host}:{self._port}") as channel:
-            planner = grpc_api.UnifiedPlanningStub(channel)
-            req = proto.PlanRequest(problem=proto_problem, timeout=timeout)
-            response_stream = planner.planOneShot(req)
-            for response in response_stream:
-                response = self._reader.convert(response, problem)
-                assert isinstance(response, up.engines.results.PlanGenerationResult)
-                if (
-                    response.status == PlanGenerationResultStatus.INTERMEDIATE
-                    and callback is not None
-                ):
-                    callback(response)
-                else:
-                    return response
+from .grpc_server import GRPCPlanner
 
 
 class Aries(GRPCPlanner):
@@ -71,24 +22,28 @@ class Aries(GRPCPlanner):
     reader = ProtobufReader()
     writer = ProtobufWriter()
 
-    def __init__(self, params: dict = {}, stdout: Optional[IO[str]] = None):
-        self.run_server = params.get("run_server", False)
-
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 2222,
+        override: bool = False,
+        stdout: Optional[IO[str]] = None,
+    ):
+        """Initialize the Aries solver."""
         if stdout is None:
             self.stdout = open(os.devnull, "w")
 
-        self.executable = os.path.join(
-            os.path.dirname(__file__), Executor()()
-        )
+        host = "127.0.0.1" if host == "localhost" else host
+        self.executable = os.path.join(os.path.dirname(__file__), Executor()())
 
-        print(
-            f"Launching Aries with executable: {self.executable} (logs are redirected to {self.stdout})"
-        )
         self.process_id = subprocess.Popen(
-            self.executable, stdout=self.stdout, stderr=self.stdout, shell=True
+            f"{self.executable} {host}:{port}",
+            stdout=self.stdout,
+            stderr=self.stdout,
+            shell=True,
         )
         time.sleep(0.1)
-        super().__init__(host="localhost", port=params.get("port", 2222))
+        super().__init__(host=host, port=port, override=override)
 
     @property
     def name(self) -> str:
@@ -141,10 +96,23 @@ class Aries(GRPCPlanner):
 
         return problem_kind <= supported_kind
 
+    def _skip_checks(self) -> bool:
+        return False
 
     def destroy(self):
-        self.process_id.kill()
+        """Destroy the solver."""
+        if self.process_id is not None:
+            self.process_id.send_signal(signal.SIGINT)
+            self.process_id.wait()
+            self.process_id = None
+
+        if self.stdout is not None:
+            self.stdout.close()
+            self.stdout = None
+
+        # Free port if still in use
+        subprocess.run(["fuser", "-k", "-n", "tcp", str(self._port)])
 
     def __del__(self):
+        super().__del__()
         self.destroy()
-
