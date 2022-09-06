@@ -56,7 +56,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
 
     def __new__(cls, **kwargs):
         """Create a new instance of the GRPCPlanner class."""
-        port = kwargs.get("port", cls._get_available_port())
+        port = kwargs.get("port")
 
         if (port, cls) not in cls._instances:
             with cls._lock:

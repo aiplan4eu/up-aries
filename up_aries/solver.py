@@ -26,7 +26,7 @@ class Aries(GRPCPlanner):
         self,
         host: str = "localhost",
         port: int = 2222,
-        override: bool = False,
+        override: bool = True,
         stdout: Optional[IO[str]] = None,
     ):
         """Initialize the Aries solver."""
