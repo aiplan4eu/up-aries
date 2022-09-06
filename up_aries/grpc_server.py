@@ -17,9 +17,8 @@ from unified_planning.grpc.proto_writer import ProtobufWriter
 
 
 class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
-    """GRPC Planner defintion"""
+    """Represents the GRPC interface that must be implemented by the planner"""
 
-    # Class instances for each planner
     _instances = {}
     _ports = set()
     _lock = threading.Lock()
@@ -29,12 +28,24 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         host: str = "localhost",
         port: Optional[int] = None,
         override: bool = False,
-        kwargs: dict = {},
+        timeout: Optional[float] = 0.5,
     ):
+        """GRPC Planner Definition
+
+        :param host: Host address, defaults to "localhost"
+        :type host: str, optional
+        :param port: Port, defaults to None
+        :type port: Optional[int], optional
+        :param override: Override the creation of new client, defaults to False
+        :type override: bool, optional
+        :param timeout: Timeout in seconds, defaults to 0.5
+        :type timeout: Optional[float], optional
+        :raises UPException: If the gRPC server is not available or accessible
+        """
         self._host = host
         self._port = port
         self._override = override
-        self._timeout_sec = kwargs.get("timeout_sec", 10)
+        self._timeout_sec = timeout
 
         self._writer = ProtobufWriter()
         self._reader = ProtobufReader()
@@ -55,8 +66,15 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         self._planner = grpc_api.UnifiedPlanningStub(self._channel)
 
     def __new__(cls, **kwargs):
-        """Create a new instance of the GRPCPlanner class."""
-        port = kwargs.get("port")
+        """Create a thread-safe singleton instance of the planner
+
+        Modes:
+         - If parameters are provided,
+                - If the port is available, create a new client
+                - If the port is already in use, return the existing client
+         - If no parameters are provided, use default.
+        """
+        port = kwargs.get("port", None)
 
         if (port, cls) not in cls._instances:
             with cls._lock:
@@ -69,6 +87,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         return cls._instances[(port, cls)]
 
     def __del__(self):
+        """Delete the planner instance"""
         self._channel.close()
 
         for instance in self._instances:
@@ -85,7 +104,19 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         timeout: Optional[float] = None,
         output_stream: Optional[IO[str]] = None,
     ) -> "up.engines.results.PlanGenerationResult":
-        """Solve a problem and return the solution."""
+        """GRPC Client for Unified Planning
+
+        :param problem: Problem to solve
+        :type problem: up.model.AbstractProblem
+        :param callback: Callback function to stream the results, defaults to None
+        :type callback: Optional[ Callable[[&quot;up.engines.results.PlanGenerationResult&quot;], None] ], optional
+        :param timeout: Timeout in seconds, defaults to None
+        :type timeout: Optional[float], optional
+        :param output_stream: Log output stream, defaults to None
+        :type output_stream: Optional[IO[str]], optional
+        :return: Plan generation result
+        :rtype: up.engines.results.PlanGenerationResult
+        """
 
         # Assert that the problem is a valid problem
         assert isinstance(problem, up.model.Problem)
@@ -105,29 +136,14 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
             else:
                 return response
 
-    def check_resources(self, host: str, port: int) -> bool:
-        """Check if the port and host are available."""
-        # Check if the host is available
-        try:
-            socket.gethostbyname(host)
-        except socket.gaierror:
-            raise UPException(
-                "The host {} is not available. Please check the hostname.".format(host)
-            )
-
-        # Check if the port is available
-        if port is not None:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind((host, port))
-            except OSError:
-                raise UPException(
-                    "The port {} is already in use. Please choose another port.".format(
-                        port
-                    )
-                )
-
     def _grpc_server_on(self, channel) -> bool:
+        """Check if the grpc server is available
+
+        :param channel: UP GRPC Channel
+        :type channel: grpc.Channel
+        :return: True if the server is available, False otherwise
+        :rtype: bool
+        """
         try:
             grpc.channel_ready_future(channel).result(timeout=self._timeout_sec)
             return True
@@ -135,8 +151,12 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
             return False
 
     @classmethod
-    def _get_available_port(cls) -> int:
-        """Get available port."""
+    def get_available_port(cls) -> int:
+        """Get an available port for the GRPC server
+
+        :return: Available port
+        :rtype: int
+        """
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("", 0))
             return s.getsockname()[1]
