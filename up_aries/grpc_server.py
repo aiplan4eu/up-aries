@@ -21,7 +21,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
 
     # Class instances for each planner
     _instances = {}
-    _port = None
+    _ports = set()
     _lock = threading.Lock()
 
     def __init__(
@@ -54,16 +54,19 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
 
         self._planner = grpc_api.UnifiedPlanningStub(self._channel)
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, **kwargs):
         """Create a new instance of the GRPCPlanner class."""
-        if (cls._port, cls) not in cls._instances:
+        port = kwargs.get("port", cls._get_available_port())
+
+        if (port, cls) not in cls._instances:
             with cls._lock:
                 if cls not in cls._instances:
-                    cls._instances[(cls._port, cls)] = super().__new__(cls)
-                    return cls._instances[(cls._port, cls)]
+                    cls._ports.add(port)
+                    cls._instances[(port, cls)] = super().__new__(cls)
+                    return cls._instances[(port, cls)]
         elif kwargs.get("override", False):
             return super().__new__(cls)
-        return cls._instances[(cls._port, cls)]
+        return cls._instances[(port, cls)]
 
     def __del__(self):
         self._channel.close()
@@ -130,3 +133,10 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
             return True
         except grpc.FutureTimeoutError:
             return False
+
+    @classmethod
+    def _get_available_port(cls) -> int:
+        """Get available port."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("", 0))
+            return s.getsockname()[1]

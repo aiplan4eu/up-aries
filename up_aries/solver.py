@@ -103,7 +103,6 @@ class Aries(GRPCPlanner):
         """Destroy the solver."""
         if self.process_id is not None:
             self.process_id.send_signal(signal.SIGINT)
-            self.process_id.wait()
             self.process_id = None
 
         if self.stdout is not None:
