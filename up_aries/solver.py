@@ -13,7 +13,7 @@ from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
 
 from .executor import Executor
-from .grpc_server import GRPCPlanner
+from .grpc_server import GRPCPlanner # TODO: Import from unified_planning.grpc.server
 
 
 class Aries(GRPCPlanner):
