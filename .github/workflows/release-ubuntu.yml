@@ -4,8 +4,12 @@
 name: Release Ubuntu
 
 on:
+  push:
+    branches:
+      - master, continuous-integration
   schedule:
-    - cron: "0 0 * * *"
+    # CRON Scheduler to run the trial every month at 00:00
+    - cron: "59 23 1 * *"
 
 jobs:
 
