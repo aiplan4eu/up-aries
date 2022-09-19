@@ -20,3 +20,20 @@ jobs:
 
       - name: Run tests
         run: python3 -m pytest -v up_aries/test_planner.py
+
+  test-macos:
+    runs-on: macos-latest
+    name: Test macOS
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: git clone https://github.com/aiplan4eu/unified-planning.git -b aries-engine && cd unified-planning && pip install .
+
+      - name: Install UP-Aries
+        run: python3 -m pip install .
+
+      - name: Run tests
+        run: python3 -m pytest -v up_aries/test_planner.py
