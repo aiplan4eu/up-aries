@@ -12,8 +12,10 @@ from unified_planning.exceptions import UPException
 from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
 
-from .executor import Executor
-from .grpc_server import GRPCPlanner # TODO: Import from unified_planning.grpc.server
+from up_aries.executor import Executor
+from up_aries.grpc_server import (
+    GRPCPlanner,
+)  # TODO: Import from unified_planning.grpc.server
 
 
 class Aries(GRPCPlanner):
@@ -37,7 +39,7 @@ class Aries(GRPCPlanner):
         self.executable = os.path.join(os.path.dirname(__file__), Executor()())
 
         self.process_id = subprocess.Popen(
-            f"{self.executable} {host}:{port}",
+            f"{self.executable} --address {host}:{port}",
             stdout=self.stdout,
             stderr=self.stdout,
             shell=True,

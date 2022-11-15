@@ -9,6 +9,7 @@ from up_aries import Aries
 
 INSTANCES = get_example_problems()
 
+
 class TestAries:
     def test_setup(self):
         aries = Aries()
