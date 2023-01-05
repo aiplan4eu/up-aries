@@ -131,16 +131,15 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
 
         req = proto.PlanRequest(problem=proto_problem, timeout=timeout)
         response_stream = self._planner.planOneShot(req)
-        for response in response_stream:
-            response = self._reader.convert(response, problem)
-            assert isinstance(response, up.engines.results.PlanGenerationResult)
-            if (
-                response.status == PlanGenerationResultStatus.INTERMEDIATE
-                and callback is not None
-            ):
-                callback(response)
-            else:
-                return response
+        response = self._reader.convert(response_stream, problem)
+        assert isinstance(response, up.engines.results.PlanGenerationResult)
+        if (
+            response.status == PlanGenerationResultStatus.INTERMEDIATE
+            and callback is not None
+        ):
+            callback(response)
+        else:
+            return response
 
     def _grpc_server_on(self, channel) -> bool:
         """Check if the grpc server is available
