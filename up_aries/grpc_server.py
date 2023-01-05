@@ -42,6 +42,9 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         :type timeout: Optional[float], optional
         :raises UPException: If the gRPC server is not available or accessible
         """
+        engines.Engine.__init__(self)
+        mixins.OneshotPlannerMixin.__init__(self)
+
         self._host = host
         self._port = port
         self._override = override
