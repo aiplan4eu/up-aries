@@ -20,11 +20,7 @@ class TestAries:
 
     @pytest.mark.parametrize(
         "instance",
-        [
-            "basic",
-            "basic_without_negative_preconditions",
-            "basic_nested_conjunctions",
-        ],
+        ["basic", "basic_without_negative_preconditions", "basic_nested_conjunctions"],
     )
     def test_basic_problem(self, instance):
         self._test_problem(instance)
@@ -43,10 +39,7 @@ class TestAries:
         self._test_problem(instance)
         self._test_up_problem(instance)
 
-    @pytest.mark.parametrize(
-        "instance",
-        ["matchcellar"],
-    )
+    @pytest.mark.parametrize("instance", ["matchcellar"])
     def test_matchcellar_problem(self, instance):
         self._test_problem(instance)
         self._test_up_problem(instance)

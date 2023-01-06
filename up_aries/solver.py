@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
 """Unified Planning Integration for Aries"""
 import os
-import subprocess
 import signal
+import subprocess
 import time
-from typing import IO, Optional, Union
+from typing import IO, Dict, Optional, Set, Tuple, Type, Union
+
+from up_aries.executor import Executor
 
 import unified_planning as up
 from unified_planning.engines.mixins.oneshot_planner import OptimalityGuarantee
 from unified_planning.exceptions import UPException
 from unified_planning.grpc.proto_reader import ProtobufReader
 from unified_planning.grpc.proto_writer import ProtobufWriter
-
-from up_aries.executor import Executor
-from up_aries.grpc_server import (
-    GRPCPlanner,
-)  # TODO: Import from unified_planning.grpc.server
+from unified_planning.grpc.server import GRPCPlanner
 
 
 class Aries(GRPCPlanner):
@@ -23,6 +21,8 @@ class Aries(GRPCPlanner):
 
     reader = ProtobufReader()
     writer = ProtobufWriter()
+    _instances: Dict[Tuple[Optional[int], Type["GRPCPlanner"]], "GRPCPlanner"] = {}
+    _ports: Set[int] = set()
 
     def __init__(
         self,
@@ -36,6 +36,7 @@ class Aries(GRPCPlanner):
             self.stdout = open(os.devnull, "w")
 
         host = "127.0.0.1" if host == "localhost" else host
+        self.optimality_metric_required = False
         self.executable = os.path.join(os.path.dirname(__file__), Executor()())
 
         self.process_id = subprocess.Popen(
