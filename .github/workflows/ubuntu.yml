@@ -1,0 +1,142 @@
+name: Aries Compile CI - Linux
+
+on:
+  schedule:
+    - cron: "0 2 15 * *"
+    - cron: "0 2 1 * *"
+
+env:
+  GITHUB_BRANCH: compile-ci
+
+jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-20.04
+    name: Build Aries - ubuntu20.04-amd64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+      - uses: actions-rs/toolchain@v1
+        name: Install Rust
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Clone Aries and Build
+        run: |
+          git clone https://github.com/plaans/aries.git --branch master
+          cd aries
+          cargo build --release
+          # Add CI Tests for aries
+          sudo apt-get install python3
+          python3 ci/grpc.py
+          cp target/release/up-server ../up_aries/bins/aries_linux_amd64
+          cd ..
+          strip up_aries/bins/aries_linux_amd64 # Strip the binary to reduce size
+          bash .github/ci/github.sh amd64 linux
+
+  build-linux-arm64:
+    runs-on: ubuntu-latest
+    name: Build Aries - ubuntu20.04-aarch64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+      - name: Clone Aries
+        run: |
+          git clone https://github.com/plaans/aries.git --branch master
+      - uses: uraimo/run-on-arch-action@v2
+        name: Build Aries binary on ubuntu20.04 for aarch64
+        id: build
+        with:
+          arch: aarch64
+          distro: ubuntu20.04
+
+          # githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+          setup: |
+            sudo apt-get update
+            sudo apt-get -y upgrade
+            sudo apt-get install -y libssl-dev libudev-dev pkg-config curl git
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            echo $HOME/.cargo/bin >> $GITHUB_PATH
+            source $HOME/.cargo/env
+              cd aries
+            cargo build --release --bin up-server
+            # Add CI Tests for aries
+            sudo apt-get install python3
+            python3 ci/grpc.py
+            cp target/release/up-server ../up_aries/bins/aries_linux_aarch64
+
+          dockerRunArgs: |
+            --privileged --volume "${PWD}:/workdir" --workdir /workdir
+
+          shell: /bin/sh
+          run: |
+            echo "Build Aries binary on ${{ matrix.distro }} for ${{ matrix.arch }}"
+
+      - name: Upload Aries binary
+        run: |
+          strip up_aries/bins/aries_linux_aarch64 # Strip the binary to reduce size
+          bash .github/ci/github.sh aarch64 linux
+
+  test-linux-amd64:
+    runs-on: ubuntu-20.04
+    name: Test Aries - ubuntu20.04-amd64
+    needs: build-linux-amd64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install python3 python3-pip python3-setuptools python3-wheel
+          python3 -m pip install --upgrade pip
+          git clone https://github.com/aiplan4eu/unified-planning.git -b aries-engine && cd unified-planning && pip install .
+
+      - name: Install UP-Aries
+        run: python3 -m pip install .
+
+      - name: Run tests
+        run: python3 -m pytest -v up_aries/test_planner.py
+
+  test-linux-arm64:
+    runs-on: ubuntu-latest
+    name: Test Aries - ubuntu20.04-aarch64
+    needs: build-linux-arm64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+
+      - uses: uraimo/run-on-arch-action@v2
+        name: Build Aries binary on ubuntu20.04 for aarch64
+        id: build
+        with:
+          arch: aarch64
+          distro: ubuntu20.04
+
+          # githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+          setup: |
+            sudo apt-get update
+            sudo apt-get -y upgrade
+            sudo apt-get install -y libssl-dev libudev-dev pkg-config curl git
+            sudo apt-get install python3 python3-pip python3-setuptools python3-wheel
+            python3 -m pip install --upgrade pip pytest pyparsing
+            git clone https://github.com/aiplan4eu/unified-planning.git -b aries-engine && cd unified-planning && pip install .
+            cd ..
+            python3 -m pip install .
+            python3 -m pytest -v up_aries/test_planner.py
+
+          dockerRunArgs: |
+            --privileged --volume "${PWD}:/workdir" --workdir /workdir
+
+          shell: /bin/sh
+          run: |
+            echo "Test Aries binary with UP-aries"

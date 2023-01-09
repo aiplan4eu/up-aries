@@ -1,0 +1,129 @@
+name: Aries Compile CI - MacOS
+
+on:
+  schedule:
+    - cron: "0 2 15 * *"
+    - cron: "0 2 1 * *"
+
+env:
+  GITHUB_BRANCH: compile-ci
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    name: Build Aries - macos-latest-amd64
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+
+      - uses: actions-rs/toolchain@v1
+        name: Install Rust
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Clone Aries and Build
+        run: |
+          git clone https://github.com/plaans/aries.git --branch master
+          cd aries
+          cargo build --release --bin up-server
+
+          # Add CI Tests for aries
+          brew install python@3.8
+          python3 ci/grpc.py
+
+          # Copy the binary to the bins folder
+          cp target/release/up-server ../up_aries/bins/aries_macos_amd64
+          cd ..
+          strip up_aries/bins/aries_macos_amd64 # Strip the binary to reduce size
+
+          # Upload the binary
+          bash .github/ci/github.sh amd64 macos
+
+  # build-macos-arm64:
+  #   runs-on: macos-arm64
+  #   name: Build Aries - macos-arm64
+
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         ref: ${{ env.GITHUB_BRANCH }}
+  #     - uses: actions-rs/toolchain@v1
+  #       name: Install Rust
+  #       with:
+  #         toolchain: stable
+  #         override: true
+
+  #     - name: Clone Aries and Build
+  #       run: |
+  #         git clone https://github.com/plaans/aries.git --branch master
+  #         cd aries
+  #         cargo build --release --bin up-server
+
+  #         # Add CI Tests for aries
+  #         brew install python@3.8
+  #         python3 ci/grpc.py
+
+  #         # Copy the binary to the bins folder
+  #         cp target/release/up-server ../up_aries/bins/aries_macos_aarch64
+  #         cd ..
+  #         strip up_aries/bins/aries_macos_aarch64 # Strip the binary to reduce size
+
+  #         # Upload the binary
+  #         bash .github/ci/github.sh aarch64 macos
+
+  test-macos-amd64:
+    runs-on: macos-latest
+    name: Test Aries - macos-latest-amd64
+    needs: build-macos
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.GITHUB_BRANCH }}
+
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          git clone https://github.com/aiplan4eu/unified-planning.git -b aries-engine && cd unified-planning && pip install .
+
+      - name: Install UP-Aries
+        run: python3 -m pip install .
+
+      - name: Run tests
+        run: |
+          python3 -m pip install pytest
+          python3 -m pytest -v up_aries/test_planner.py
+
+  # test-macos-arm64:
+  #   runs-on: macos-arm64
+  #   name: Test Aries - macos-arm64
+  #   # needs: build-macos-arm64
+
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         ref: ${{ env.GITHUB_BRANCH }}
+
+  #     - uses: actions/setup-python@v2
+  #       name: Install Python
+  #       with:
+  #         python-version: "3.8"
+
+  #     - name: Install dependencies
+  #       run: |
+  #         git clone https://github.com/aiplan4eu/unified-planning.git -b aries-engine && cd unified-planning && pip install .
+
+  #     - name: Install UP-Aries
+  #       run: python3 -m pip install .
+
+  #     - name: Run tests
+  #       run: |
+  #         python3 -m pip install pytest
+  #         python3 -m pytest -v up_aries/test_planner.py
