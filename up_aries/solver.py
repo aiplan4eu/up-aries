@@ -45,7 +45,7 @@ class Aries(GRPCPlanner):
             stderr=self.stdout,
             shell=True,
         )
-        time.sleep(0.1)
+        time.sleep(0.3)  # 0.1s fails on macOS
         super().__init__(host=host, port=port, override=override)
 
     @property

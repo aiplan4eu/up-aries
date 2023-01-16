@@ -11,7 +11,7 @@ arch = (platform.system(), platform.machine())
 EXECUTABLES = {
     ("Linux", "x86_64"): "bins/aries_linux_amd64",
     ("Linux", "aarch64"): "bins/aries_linux_aarch64",
-    ("Darwin", "x86_64"): "bins/aries_macos_amd64",
+    ("Darwin", "x86_64"): "bins/aries_macos_x86_64",
     ("Darwin", "aarch64"): "bins/aries_macos_aarch64",
     ("Darwin", "arm64"): "bins/aries_macos_aarch64",
     ("Windows", "AMD64"): "aries_windows_amd64.exe",
