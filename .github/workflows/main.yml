@@ -35,6 +35,7 @@ jobs:
 
       - name: Test executable
         run: |
+          echo "PATH=/usr/local/opt/coreutils/libexec/gnubin:$PATH" >> $GITHUB_ENV
           brew install coreutils
           ll ./up_aries/bins
           timeout 10s ./up_aries/bins/aries_macos_x86_64
