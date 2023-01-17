@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest]
+        os: [windows-latest]
     defaults:
       run:
         shell: bash
@@ -32,13 +32,6 @@ jobs:
 
       - name: Install UP-Aries
         run: python3 -m pip install .
-
-      - name: Test executable
-        run: |
-          PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
-          brew install coreutils
-          ll ./up_aries/bins
-          timeout 10s ./up_aries/bins/aries_macos_x86_64
 
       - name: Run tests
         run: python3 -m pytest -v up_aries/test_planner.py
