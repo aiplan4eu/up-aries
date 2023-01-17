@@ -8,8 +8,8 @@ EXECUTABLES = {
     ("Darwin", "x86_64"): "bins/aries_macos_x86_64",
     ("Darwin", "aarch64"): "bins/aries_macos_aarch64",
     ("Darwin", "arm64"): "bins/aries_macos_aarch64",
-    ("Windows", "AMD64"): "aries_windows_amd64.exe",
-    # ("Windows", "aarch64"): "aries_windows_aarch64.exe",
+    ("Windows", "AMD64"): "bins/aries_windows_amd64.exe",
+    ("Windows", "aarch64"): "bins/aries_windows_aarch64.exe",
     # ("Windows", "x86"): "aries_windows_x86.exe",
     # ("Windows", "aarch32"): "aries_windows_aarch32.exe",
 }

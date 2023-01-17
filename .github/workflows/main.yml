@@ -36,6 +36,7 @@ jobs:
       - name: Test executable
         run: |
           brew install coreutils
+          ll ./up_aries/bins
           timeout 10s ./up_aries/bins/aries_macos_x86_64
 
       - name: Run tests

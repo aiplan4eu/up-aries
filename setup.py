@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import os
 import platform
 
 from setuptools import find_packages, setup
@@ -14,13 +14,16 @@ EXECUTABLES = {
     ("Darwin", "x86_64"): "bins/aries_macos_x86_64",
     ("Darwin", "aarch64"): "bins/aries_macos_aarch64",
     ("Darwin", "arm64"): "bins/aries_macos_aarch64",
-    ("Windows", "AMD64"): "aries_windows_amd64.exe",
-    # ("Windows", "aarch64"): "aries_windows_aarch64.exe",
+    ("Windows", "AMD64"): "bins/aries_windows_amd64.exe",
+    ("Windows", "aarch64"): "bins/aries_windows_aarch64.exe",
     # ("Windows", "x86"): "aries_windows_x86.exe",
     # ("Windows", "aarch32"): "aries_windows_aarch32.exe",
 }
 
 executable = EXECUTABLES[arch]
+
+# Update permissions on the binary.
+os.chmod(os.path.realpath(os.path.join(os.path.dirname(__file__), "up_aries", executable)), 0o755)
 
 long_description = ""
 
