@@ -34,7 +34,9 @@ jobs:
         run: python3 -m pip install .
 
       - name: Test executable
-        run: timeout 10s ./up_aries/bins/aries_macos_x86_64
+        run: |
+          brew install coreutils
+          timeout 10s ./up_aries/bins/aries_macos_x86_64
 
       - name: Run tests
         run: python3 -m pytest -v up_aries/test_planner.py
