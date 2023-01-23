@@ -105,7 +105,7 @@ class Aries(GRPCPlanner):
     def destroy(self):
         """Destroy the solver."""
         if self.process_id is not None:
-            self.process_id.send_signal(signal.SIGINT)
+            self.process_id.raise_signal(signal.SIGINT)
             self.process_id = None
 
         if self.stdout is not None:
