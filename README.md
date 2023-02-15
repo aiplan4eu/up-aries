@@ -14,6 +14,10 @@ Integration into the AIPlan4EU project is ongoing, synchronized with the effort 
 
 ## Installation
 
-After cloning this repository run `pip install up-aries`. 
-Note that the integration is still incomplete and is in particular missing the full support of hierarchical problems in protobuf from the unified-planning library.
+To install the library from PyPi, run the following command:
 
+```bash
+python3 -m pip install up-aries
+```
+
+To install alternative versions of the library, visit the [releases page](https://github.com/plaans/aries/releases/) and download the corresponding tar file.
